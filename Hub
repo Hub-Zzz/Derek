@@ -1,0 +1,114 @@
+--== DMvsS · HUB MINI v1.0 ==--
+local P,S=game:GetService("Players"),game:GetService("RunService")
+local U,W,C=game:GetService("UserInputService"),workspace,workspace.CurrentCamera
+local LP=P.LocalPlayer
+local F={aim=false,silent=false,esp=false,hb=false,spd=false,fly=false,ij=false,bypass=true}
+
+--== BYPASS ==--
+local kicks=0
+local oNC;oNC=hookmetamethod(game,"__namecall",function(s,...)
+  local m=getnamecallmethod()
+  if F.bypass and m=="Kick" and s==LP then kicks+=1 return end
+  if F.silent and s:IsA("RemoteEvent") then
+    local t=T()
+    if t then local a=table.pack(...)
+      for i=1,a.n do
+        if typeof(a[i])=="CFrame" then a[i]=CFrame.lookAt(a[i].Position,t.Position)
+        elseif typeof(a[i])=="Vector3" then a[i]=t.Position end end
+      return oNC(s,table.unpack(a,1,a.n)) end end
+  return oNC(s,...) end)
+
+local oI;oI=hookmetamethod(game,"__index",function(s,k)
+  if F.bypass and k=="WalkSpeed" then local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if s==h then return 16 end end
+  return oI(s,k) end)
+
+task.spawn(function() while task.wait(2) do
+  if not F.bypass then continue end
+  for _,r in ipairs({LP:FindFirstChild("PlayerScripts"),LP:FindFirstChild("PlayerGui")}) do
+    for _,d in ipairs(r:GetDescendants()) do
+      if d:IsA("LocalScript") and d.Name:lower():find("anti|ac|guard|check|secur|detect") then d.Disabled=true end end end
+end end)
+
+--== UTIL ==--
+function alive() local c=LP.Character local h=c and c:FindFirstChildOfClass("Humanoid")
+  return c,h,h and h.RootPart end
+function T() local _,_,r=alive() local b,d= nil,1e9
+  local c=C.ViewportSize/2
+  for _,p in ipairs(P:GetPlayers()) do if p~=LP then
+    local ch=p.Character local h=ch and ch:FindFirstChildOfClass("Humanoid") local hr=ch and ch:FindFirstChild("HumanoidRootPart")
+    if h and hr and h.Health>0 then local v,on=C:WorldToViewportPoint(hr.Position)
+      local m=(Vector2.new(v.X,v.Y)-c).Magnitude
+      if on and v.Z>0 and m<140 and m<d then b,d=hr,m end end end end
+  return b end
+
+--== AIMBOT ==--
+S.RenderStepped:Connect(function()
+  if F.aim then local t=T() if t then C.CFrame=C.CFrame:Lerp(CFrame.lookAt(C.CFrame.Position,t.Position),.25) end end end)
+
+--== MOVIMIENTO ==--
+S.Heartbeat:Connect(function()
+  local c,h,r=alive() if not r then return end
+  local bv=r:FindFirstChild("hub") or Instance.new("BodyVelocity",r)
+  bv.Name="hub" bv.MaxForce=Vector3.new(1/0,1/0,1/0)
+  if F.fly then local d=Vector3.new()
+    if U:IsKeyDown(Enum.KeyCode.W) then d+=C.CFrame.LookVector end
+    if U:IsKeyDown(Enum.KeyCode.S) then d-=C.CFrame.LookVector end
+    if U:IsKeyDown(Enum.KeyCode.A) then d-=C.CFrame.RightVector end
+    if U:IsKeyDown(Enum.KeyCode.D) then d+=C.CFrame.RightVector end
+    if U:IsKeyDown(Enum.KeyCode.Space) then d+=Vector3.yAxis end
+    bv.Velocity=d*55
+  elseif F.spd then bv.Velocity=h.MoveDirection*42+Vector3.new(0,r.Velocity.Y,0)
+  else bv.Velocity=Vector3.zero end
+end)
+U.JumpRequest:Connect(function() if F.ij then local _,h=alive() if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end end end)
+
+--== ESP ==--
+local E={}
+function esp(on)
+  for _,v in ipairs(E) do pcall(function() v:Remove() end) end E={}
+  if not on then return end
+  for _,p in ipairs(P:GetPlayers()) do if p~=LP then task.spawn(function()
+    local b=Drawing.new("Square") b.Thickness=1.5 b.Color=Color3.fromRGB(0,255,150)
+    local n=Drawing.new("Text") n.Size=15 n.Center=true n.Outline=true
+    table.insert(E,b) table.insert(E,n)
+    while F.esp do local c=p.Character local h=c and c:FindFirstChildOfClass("Humanoid") local r=c and c:FindFirstChild("HumanoidRootPart")
+      if h and r and h.Health>0 then local v,on2=C:WorldToViewportPoint(r.Position)
+        if on2 and v.Z>0 then
+          b.Size=Vector2.new(0,0) local top=C:WorldToViewportPoint(r.Position+Vector3.yAxis*3) local bot=C:WorldToViewportPoint(r.Position-Vector3.yAxis*3)
+          local hh=math.abs(top.Y-bot.Y) b.Size=Vector2.new(hh*.55,hh) b.Position=Vector2.new(v.X-hh*.27,top.Y)
+          n.Text=p.Name n.Position=Vector2.new(v.X,top.Y-18) b.Visible=true n.Visible=true
+        else b.Visible=false n.Visible=false end
+      else b.Visible=false n.Visible=false end task.wait(.05) end
+    pcall(function() b:Remove() n:Remove() end) end) end end
+end
+
+--== HITBOX ==--
+function hb(on) for _,p in ipairs(P:GetPlayers()) do if p~=LP then
+  local r=p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+  if r then r.Size=on and Vector3.new(9,9,9) or Vector3.new(2,2,1) r.Transparency=on and .6 or 1 end end end end
+
+--== UI ==--
+local g=Instance.new("ScreenGui",(gethui and gethui()) or game:GetService("CoreGui"))
+g.Name="mini" g.ResetOnSpawn=false
+local f=Instance.new("Frame",g) f.Size=UDim2.fromOffset(150,300) f.Position=UDim2.new(0,10,.5,-150)
+f.BackgroundColor3=Color3.fromRGB(18,20,26) f.BorderSizePixel=0 f.Visible=false
+Instance.new("UICorner",f).CornerRadius=UDim.new(0,10)
+local l=Instance.new("UIListLayout",f) l.Padding=UDim.new(0,4) l.HorizontalAlignment=Enum.HorizontalAlignment.Center
+Instance.new("UIPadding",f).PaddingTop=UDim.new(0,8)
+local bub=Instance.new("TextButton",g) bub.Size=UDim2.fromOffset(46,46) bub.Position=UDim2.new(0,10,.5,-23)
+bub.BackgroundColor3=Color3.fromRGB(25,28,36) bub.Text="MVS" bub.TextColor3=Color3.fromRGB(90,220,255)
+bub.Font=Enum.Font.GothamBold bub.TextSize=13 Instance.new("UICorner",bub).CornerRadius=UDim.new(1,0)
+bub.MouseButton1Click:Connect(function() f.Visible=not f.Visible bub.Visible=not f.Visible end)
+
+for k,v in pairs({aim="Aimbot",silent="Silent Aim",esp="ESP",hb="Hitbox",spd="Speed",fly="Fly",ij="Inf Jump",bypass="Bypass"}) do
+  local b=Instance.new("TextButton",f) b.Size=UDim2.new(1,-12,0,30) b.BackgroundColor3=Color3.fromRGB(32,36,46)
+  b.Text=v b.Font=Enum.Font.Gotham b.TextSize=13 b.TextColor3=Color3.fromRGB(210,215,225) b.BorderSizePixel=0
+  Instance.new("UICorner",b).CornerRadius=UDim.new(0,7)
+  local function r() b.BackgroundColor3=F[k] and Color3.fromRGB(45,130,220) or Color3.fromRGB(32,36,46) end
+  b.MouseButton1Click:Connect(function() F[k]=not F[k] r()
+    if k=="esp" then esp(F.esp) elseif k=="hb" then hb(F.hb) end end)
+  r()
+end
+U.InputBegan:Connect(function(i) if i.KeyCode==Enum.KeyCode.RightShift then
+  f.Visible=not f.Visible bub.Visible=not f.Visible end end)
